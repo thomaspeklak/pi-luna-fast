@@ -40,9 +40,36 @@ Restart Pi or run `/reload`. Keep the parent entrypoint enabled in `pi config`.
 
 Disable any previous copy of this policy before enabling this package. Do **not** load `src/child-policy.ts` directly into the parent.
 
+## Enable or disable
+
+Fast mode defaults to **on**. Set the global default in Pi's user `settings.json`:
+
+```json
+{
+  "lunaFast": { "enabled": false }
+}
+```
+
+This is a global-only setting, not a project setting. The usual Pi agent directory is used, including `PI_CODING_AGENT_DIR` when configured. Values must be JSON booleans, not strings.
+
+| Command | Effect |
+| --- | --- |
+| `/luna-fast` | Show effective state, its source, and the global default |
+| `/luna-fast on` | Enable for this parent session |
+| `/luna-fast off` | Disable for this parent session |
+| `/luna-fast reset` | Remove the session override and inherit the global default |
+| `/luna-fast global on` | Save an enabled global default |
+| `/luna-fast global off` | Save a disabled global default |
+
+Session overrides take precedence over the global default and persist in the session history. Resume and fork restore the override from the current branch; new sessions inherit the global default. `reset` is also recorded in history. Global commands preserve unrelated settings and coordinate writes with Pi's settings lock.
+
+Changes apply to **new child launches**. Already-running children, nested work carrying an existing snapshot, and retained/recovery launches keep their captured policy. Other parent sessions pick up global changes before their next agent run or when `/luna-fast` is used; there is no live cross-process broadcast. Direct settings edits are picked up the same way.
+
+Turning this package off removes its priority policy. It does not override independently requested `fast: true`, provider defaults, or another extension's service-tier setting.
+
 ## How it works
 
-1. The parent entrypoint registers a required child extension through `pi-subagents/required-child-extensions`.
+1. When enabled, the parent entrypoint registers a required child extension through `pi-subagents/required-child-extensions`.
 2. pi-subagents carries that snapshot into native foreground, background, nested, and recovery launches.
 3. The child-only extension checks the resolved provider/model and adds `service_tier: "priority"` immediately before a Luna request.
 
@@ -67,7 +94,7 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-Tests use Node's test runner and the pinned public pi-subagents API. They require no credentials and make no model calls. They cover parent lifecycle, child-process guards, required-extension selection, prohibited extensions, model filtering, and payload preservation.
+Tests use Node's test runner and the pinned public pi-subagents API. They require no credentials and make no model calls. They cover parent lifecycle, child-process guards, required-extension selection, prohibited extensions, model filtering, payload preservation, global settings, session overrides, and branch restoration.
 
 A manual integration check can launch a tiny Luna task in foreground, background, and nested modes with `extensions: []`, then inspect the outgoing payload using a temporary observer. Never publish request bodies, credentials, or session transcripts.
 

@@ -1,5 +1,20 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, before, after } from "node:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+let directory: string;
+const previousDir = process.env.PI_CODING_AGENT_DIR;
+before(() => {
+  directory = mkdtempSync(join(tmpdir(), "luna-fast-test-"));
+  process.env.PI_CODING_AGENT_DIR = directory;
+});
+after(() => {
+  if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+  else process.env.PI_CODING_AGENT_DIR = previousDir;
+  rmSync(directory, { recursive: true, force: true });
+});
 import { fileURLToPath } from "node:url";
 import { registerRequiredChildExtensions } from "pi-subagents/required-child-extensions";
 import { resolvePiLaunchToolPlan } from "pi-subagents/child-tool-plan";
@@ -8,7 +23,10 @@ import policy from "../src/child-policy.ts";
 
 function harness(factory: Function) {
   const handlers = new Map<string, Function>();
-  factory({ on(name: string, handler: Function) { handlers.set(name, handler); } });
+  factory({
+    on(name: string, handler: Function) { handlers.set(name, handler); },
+    registerCommand() {},
+  });
   return handlers;
 }
 
@@ -19,7 +37,7 @@ test("parent lifecycle owns one registration and never rewrites parent requests"
   delete process.env.PI_SUBAGENT_CHILD;
   const handlers = harness(registrar);
   const sessionId = "luna-fast-test-parent";
-  const context = { sessionManager: { getSessionId: () => sessionId } };
+  const context = { sessionManager: { getSessionId: () => sessionId, getBranch: () => [] } };
   try {
     assert.equal(handlers.has("before_provider_request"), false);
     handlers.get("session_start")!({}, context);
