@@ -1,6 +1,8 @@
 # pi-luna-fast
 
-Request OpenAI priority service ("fast mode") for **`openai-codex/gpt-5.6-luna`** children launched by [pi-subagents](https://github.com/nicobailon/pi-subagents).
+Request OpenAI priority service ("fast mode") for **OpenAI Codex Luna** children launched by [pi-subagents](https://github.com/nicobailon/pi-subagents).
+
+Matches provider `openai-codex` and model IDs matching `/^gpt-\d+(?:\.\d+)*-luna$/`, such as `gpt-5.6-luna`, `gpt-6-luna`, and `gpt-6.1-luna`. Prefixes, suffix variants, and malformed versions are excluded. Matching a future model name does not guarantee that the provider supports priority service for it.
 
 The parent session stays unchanged. Other models stay unchanged. Reasoning effort stays unchanged.
 

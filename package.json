@@ -1,6 +1,6 @@
 {
   "name": "pi-luna-fast",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Request priority service for Luna children launched by pi-subagents.",
   "license": "MIT",
   "repository": {

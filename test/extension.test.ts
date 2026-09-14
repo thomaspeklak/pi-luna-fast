@@ -81,11 +81,24 @@ test("required policy survives explicit extension restrictions", () => {
 test("Luna policy preserves effort and input while overriding the tier", () => {
   const handler = harness(policy).get("before_provider_request")!;
   const payload = { reasoning: { effort: "max" }, service_tier: "default", input: [] };
-  const result = handler({ payload }, { model: { provider: "openai-codex", id: "gpt-5.6-luna" } });
-  assert.deepEqual(result, { ...payload, service_tier: "priority" });
-  assert.equal(payload.service_tier, "default");
+  for (const id of ["gpt-5.6-luna", "gpt-6-luna", "gpt-6.1-luna", "gpt-12.34.5-luna"]) {
+    const result = handler({ payload }, { model: { provider: "openai-codex", id } });
+    assert.deepEqual(result, { ...payload, service_tier: "priority" }, id);
+    assert.equal(payload.service_tier, "default");
+  }
   for (const model of [undefined, { provider: "openai", id: "gpt-5.6-luna" }, { provider: "openai-codex", id: "gpt-5.6-sol" }]) {
     assert.equal(handler({ payload }, { model }), undefined);
+  }
+});
+
+test("Luna matching rejects malformed versions, prefixes and suffix variants", () => {
+  const handler = harness(policy).get("before_provider_request")!;
+  for (const id of [
+    "gpt-luna", "gpt--luna", "gpt-.-luna", "gpt-6..1-luna", "gpt-6.-luna",
+    "gpt-6-1-luna", "gpt-six-luna", "other-gpt-6-luna", "gpt-6-luna-pro",
+    "gpt-6-luna-2026-09-14", "gpt-6-luna:max", "gpt-6-Luna",
+  ]) {
+    assert.equal(handler({ payload: {} }, { model: { provider: "openai-codex", id } }), undefined, id);
   }
 });
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Match numeric GPT Luna versions instead of only `gpt-5.6-luna`, retaining the OpenAI Codex provider restriction.
+- Reject malformed versions and unrelated prefix/suffix variants with an anchored pattern.
+
 ## 0.2.0
 
 - Add the global `lunaFast.enabled` setting (defaults to enabled).
