@@ -1,0 +1,53 @@
+{
+  "name": "pi-luna-fast",
+  "version": "0.1.0",
+  "description": "Request priority service for Luna children launched by pi-subagents.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thomaspeklak/pi-luna-fast.git"
+  },
+  "homepage": "https://github.com/thomaspeklak/pi-luna-fast#readme",
+  "bugs": {
+    "url": "https://github.com/thomaspeklak/pi-luna-fast/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "subagents",
+    "openai-codex"
+  ],
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "tsx --test test/*.test.ts",
+    "check": "npm test && npm pack --dry-run"
+  },
+  "dependencies": {
+    "pi-subagents": "https://codeload.github.com/nicobailon/pi-subagents/tar.gz/6d371748ce9284896d0a72a6be6cd280b357e076"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "tsx": "4.23.13"
+  }
+}
