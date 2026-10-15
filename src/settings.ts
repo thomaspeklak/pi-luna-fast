@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import lockfile from "proper-lockfile";
+import { isFastMode, type FastMode } from "./policy.ts";
 
 export function settingsPath(): string {
   const configured = process.env.PI_CODING_AGENT_DIR;
@@ -29,20 +30,26 @@ function section(settings: Record<string, unknown>): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-export function readGlobalEnabled(path = settingsPath()): boolean {
-  const value = section(readSettings(path)).enabled;
-  if (value !== undefined && typeof value !== "boolean") throw new Error("lunaFast.enabled must be a boolean.");
-  return value ?? true;
+export function readGlobalMode(path = settingsPath()): FastMode {
+  const { mode, enabled } = section(readSettings(path));
+  if (mode !== undefined) {
+    if (!isFastMode(mode)) throw new Error("lunaFast.mode must be all, luna, or off.");
+    return mode;
+  }
+  if (enabled !== undefined && typeof enabled !== "boolean") throw new Error("lunaFast.enabled must be a boolean.");
+  return enabled === false ? "off" : "luna";
 }
 
 /** Coordinate with Pi's settings lock and preserve unrelated settings. */
-export async function writeGlobalEnabled(enabled: boolean, path = settingsPath()): Promise<void> {
+export async function writeGlobalMode(mode: FastMode, path = settingsPath()): Promise<void> {
+  if (!isFastMode(mode)) throw new Error("lunaFast.mode must be all, luna, or off.");
   mkdirSync(dirname(path), { recursive: true });
   const release = await lockfile.lock(path, { realpath: false, retries: { retries: 10, minTimeout: 20, maxTimeout: 100 } });
   const temporary = `${path}.${randomUUID()}.tmp`;
   try {
     const settings = readSettings(path);
-    settings.lunaFast = { ...section(settings), enabled };
+    const { enabled: _legacy, ...current } = section(settings);
+    settings.lunaFast = { ...current, mode };
     writeFileSync(temporary, JSON.stringify(settings, null, 2) + "\n", { mode: 0o600, flag: "wx" });
     renameSync(temporary, path);
   } finally {

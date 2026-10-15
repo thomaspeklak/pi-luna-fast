@@ -1,6 +1,6 @@
 # Contributing
 
-Keep the package small and model-specific. Discuss broader provider or configuration changes in an issue first.
+Keep the package small and focused on OpenAI priority service. Discuss support for other providers or broader configuration changes in an issue first.
 
 1. Use Node.js 24 or newer.
 2. Run `npm ci --ignore-scripts`.

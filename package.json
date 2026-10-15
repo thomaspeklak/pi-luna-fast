@@ -1,7 +1,7 @@
 {
   "name": "pi-luna-fast",
   "version": "0.2.1",
-  "description": "Request priority service for Luna children launched by pi-subagents.",
+  "description": "Switch OpenAI priority service between all models, Luna only, or off for Pi sessions and subagents.",
   "license": "MIT",
   "repository": {
     "type": "git",

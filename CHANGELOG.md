@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add all / luna / off modes, session and global commands, and argument completion.
+- Apply priority to parent requests as well as native children, on OpenAI and OpenAI Codex providers.
+- Keep on as an alias for luna and restore legacy boolean settings/session histories.
+- Capture child mode in distinct entrypoints so retained and nested launches keep their original policy.
+
 ## 0.2.1
 
 - Match numeric GPT Luna versions instead of only `gpt-5.6-luna`, retaining the OpenAI Codex provider restriction.

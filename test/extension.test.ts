@@ -20,6 +20,8 @@ import { registerRequiredChildExtensions } from "pi-subagents/required-child-ext
 import { resolvePiLaunchToolPlan } from "pi-subagents/child-tool-plan";
 import registrar from "../src/index.ts";
 import policy from "../src/child-policy.ts";
+import allPolicy from "../src/child-all-policy.ts";
+import { priorityPayload } from "../src/policy.ts";
 
 function harness(factory: Function) {
   const handlers = new Map<string, Function>();
@@ -32,14 +34,16 @@ function harness(factory: Function) {
 
 const policyPath = fileURLToPath(new URL("../src/child-policy.ts", import.meta.url));
 
-test("parent lifecycle owns one registration and never rewrites parent requests", () => {
+test("parent lifecycle owns one registration and applies the default Luna policy", () => {
   const previous = process.env.PI_SUBAGENT_CHILD;
   delete process.env.PI_SUBAGENT_CHILD;
   const handlers = harness(registrar);
   const sessionId = "luna-fast-test-parent";
   const context = { sessionManager: { getSessionId: () => sessionId, getBranch: () => [] } };
   try {
-    assert.equal(handlers.has("before_provider_request"), false);
+    assert.deepEqual(handlers.get("before_provider_request")!({ payload: {} }, {
+      model: { provider: "openai-codex", id: "gpt-6-luna" },
+    }), { service_tier: "priority" });
     handlers.get("session_start")!({}, context);
     assert.throws(() => registerRequiredChildExtensions({ sessionId, extensions: [] }), /already registered/);
     handlers.get("session_shutdown")!();
@@ -67,26 +71,32 @@ test("ambient registrar is inert in detached child processes", () => {
 });
 
 test("required policy survives explicit extension restrictions", () => {
-  const requiredExtensions = [{ id: "luna-priority", path: policyPath }];
-  for (const extensions of [undefined, [], ["./optional.ts"]]) {
-    const plan = resolvePiLaunchToolPlan({ extensions, requiredExtensions });
-    assert.equal(plan.extensionArgs.at(-1), policyPath);
+  for (const path of [policyPath, fileURLToPath(new URL("../src/child-all-policy.ts", import.meta.url))]) {
+    const requiredExtensions = [{ id: "luna-priority", path }];
+    for (const extensions of [undefined, [], ["./optional.ts"]]) {
+      const plan = resolvePiLaunchToolPlan({ extensions, requiredExtensions });
+      assert.equal(plan.extensionArgs.at(-1), path);
+    }
+    assert.throws(() => resolvePiLaunchToolPlan({
+      requiredExtensions,
+      capabilityCeiling: { version: 1, denyExtensions: true, sources: ["test"] },
+    }), /denies extensions/);
   }
-  assert.throws(() => resolvePiLaunchToolPlan({
-    requiredExtensions,
-    capabilityCeiling: { version: 1, denyExtensions: true, sources: ["test"] },
-  }), /denies extensions/);
 });
 
 test("Luna policy preserves effort and input while overriding the tier", () => {
   const handler = harness(policy).get("before_provider_request")!;
   const payload = { reasoning: { effort: "max" }, service_tier: "default", input: [] };
   for (const id of ["gpt-5.6-luna", "gpt-6-luna", "gpt-6.1-luna", "gpt-12.34.5-luna"]) {
-    const result = handler({ payload }, { model: { provider: "openai-codex", id } });
-    assert.deepEqual(result, { ...payload, service_tier: "priority" }, id);
-    assert.equal(payload.service_tier, "default");
+    for (const provider of ["openai", "openai-codex"]) {
+      const result = handler({ payload }, { model: { provider, id } });
+      assert.deepEqual(result, { ...payload, service_tier: "priority" }, id);
+      assert.equal(result.reasoning, payload.reasoning);
+      assert.equal(result.input, payload.input);
+      assert.equal(payload.service_tier, "default");
+    }
   }
-  for (const model of [undefined, { provider: "openai", id: "gpt-5.6-luna" }, { provider: "openai-codex", id: "gpt-5.6-sol" }]) {
+  for (const model of [undefined, { provider: "anthropic", id: "gpt-5.6-luna" }, { provider: "openai-codex", id: "gpt-5.6-sol" }]) {
     assert.equal(handler({ payload }, { model }), undefined);
   }
 });
@@ -102,9 +112,26 @@ test("Luna matching rejects malformed versions, prefixes and suffix variants", (
   }
 });
 
-test("malformed target payloads produce a diagnostic", () => {
-  const handler = harness(policy).get("before_provider_request")!;
-  for (const payload of [null, [], "invalid"]) {
-    assert.throws(() => handler({ payload }, { model: { provider: "openai-codex", id: "gpt-5.6-luna" } }), /object provider payload/);
+test("all mode covers non-Luna OpenAI models without touching other providers", () => {
+  const handler = harness(allPolicy).get("before_provider_request")!;
+  const payload = { reasoning: { effort: "max" }, input: [], service_tier: "default" };
+  for (const provider of ["openai-codex", "openai"]) {
+    for (const id of ["gpt-6-luna", "gpt-6.1-sol", "gpt-6-astra", "o3"]) {
+      assert.deepEqual(handler({ payload }, { model: { provider, id } }), { ...payload, service_tier: "priority" });
+    }
+  }
+  assert.equal(payload.service_tier, "default");
+  for (const model of [undefined, ...["anthropic", "google", "azure-openai-responses", "custom-openai"].map((provider) => ({ provider, id: "gpt-6-luna" }))]) {
+    assert.equal(handler({ payload: null }, { model }), undefined);
+  }
+  assert.equal(priorityPayload(null, { provider: "openai-codex", id: "gpt-6-luna" }, "off"), undefined);
+});
+
+test("malformed target payloads produce a diagnostic in both child modes", () => {
+  for (const factory of [policy, allPolicy]) {
+    const handler = harness(factory).get("before_provider_request")!;
+    for (const payload of [null, [], "invalid"]) {
+      assert.throws(() => handler({ payload }, { model: { provider: "openai-codex", id: "gpt-5.6-luna" } }), /object provider payload/);
+    }
   }
 });
